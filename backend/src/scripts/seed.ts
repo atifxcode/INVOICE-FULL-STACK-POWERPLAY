@@ -8,17 +8,13 @@ import Invoice from "../models/Invoice";
 
 dotenv.config();
 
-// Utility helper to handle floating-point decimal rounding safety
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
 async function run() {
-//   const MONGO_URI = process.env.MONGO_URI as string;
-//   if (!MONGO_URI) throw new Error("MONGO_URI missing from environment variables.");
   await connectDB();
 
   const seedPath = path.join(__dirname, "../../seed-data.json");
 
-  // Strict check: Halt execution completely if file is missing
   if (!fs.existsSync(seedPath)) {
     console.error("\n❌ CRITICAL ERROR: seed-data.json was not found!");
     console.error(`Please place your dataset file exactly at: ${seedPath}\n`);
@@ -33,7 +29,6 @@ async function run() {
   await Invoice.deleteMany({});
   await Customer.deleteMany({});
 
-  // 1. Extract unique customer-company pairings dynamically from flat list
   const customerMap = new Map<string, { name: string; company: string }>();
   for (const inv of rawInvoices) {
     if (inv.customer && !customerMap.has(inv.customer)) {
@@ -48,11 +43,9 @@ async function run() {
   console.log(`👥 Found ${uniqueCustomers.length} unique clients. Inserting into Customer collection...`);
   const insertedCustomers = await Customer.insertMany(uniqueCustomers);
 
-  // Map customer names to their new native MongoDB ObjectIds
   const nameToId = new Map<string, mongoose.Types.ObjectId>();
   insertedCustomers.forEach((c) => nameToId.set(c.name, c._id as mongoose.Types.ObjectId));
 
-  // 2. Relink flat invoice data to true database relational pointers
   console.log(`🧾 Remapping ${rawInvoices.length} invoices to corresponding Mongoose ObjectIds...`);
   const formattedInvoices = rawInvoices.map((inv: any) => {
     const customerId = nameToId.get(inv.customer);

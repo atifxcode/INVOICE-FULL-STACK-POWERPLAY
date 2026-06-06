@@ -5,6 +5,9 @@ import mongoose from "mongoose";
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
+const generateInvoiceId = () =>
+  `INV-${Math.floor(1000000 + Math.random() * 9000000)}`;
+
 export async function listInvoices(req: Request, res: Response) {
   try {
     const page = Math.max(1, parseInt((req.query.page as string) || "1"));
@@ -35,9 +38,23 @@ export async function listInvoices(req: Request, res: Response) {
       ];
     }
 
-    const sort: any = {};
-    if (sortField === "amount") sort.amount = sortOrder;
-    else sort.dueDate = sortOrder;
+    const sort: Record<string, 1 | -1> = {};
+    switch (sortField) {
+      case "amount":
+        sort.amount = sortOrder;
+        break;
+      case "invoiceId":
+        sort.invoiceId = sortOrder;
+        break;
+      case "total":
+        sort.total = sortOrder;
+        break;
+      case "issueDate":
+        sort.issueDate = sortOrder;
+        break;
+      default:
+        sort.dueDate = sortOrder;
+    }
 
     const [items, total] = await Promise.all([
       Invoice.find(filter).populate("customer").sort(sort).skip(skip).limit(limit),
@@ -62,13 +79,13 @@ export async function getInvoice(req: Request, res: Response) {
 
 export async function createInvoice(req: Request, res: Response) {
   try {
-    const { invoiceId, customer, amount, taxRate, status, issueDate, dueDate } = req.body;
+    const { customer, amount, taxRate, status, issueDate, dueDate } = req.body;
     const amt = Number(amount);
     const rate = Number(taxRate);
     const tax = round2(amt * (rate / 100));
     const total = round2(amt + tax);
     const inv = await Invoice.create({
-      invoiceId,
+      invoiceId: generateInvoiceId(),
       customer,
       amount: round2(amt),
       taxRate: rate,

@@ -3,62 +3,6 @@ import Invoice from "../models/Invoice";
 import Customer from "../models/Customer";
 import mongoose from "mongoose";
 
-export async function globalAnalytics(_req: Request, res: Response) {
-    try {
-        const totals = await Invoice.aggregate([
-            {
-                $group: {
-                    _id: null,
-                    totalBilled: { $sum: "$total" },
-                    totalTax: { $sum: "$tax" },
-                    totalInvoices: { $sum: 1 },
-                    uniqueCustomers: { $addToSet: "$customer" },
-                },
-            },
-            {
-                $project: {
-                    _id: 0,
-                    totalBilled: 1,
-                    totalTax: 1,
-                    totalInvoices: 1,
-                    uniqueCustomers: { $size: "$uniqueCustomers" },
-                },
-            },
-        ]);
-
-        const topCustomers = await Invoice.aggregate([
-            { $group: { _id: "$customer", totalValue: { $sum: "$total" }, invoiceCount: { $sum: 1 } } },
-            { $sort: { totalValue: -1 } },
-            { $limit: 5 },
-            {
-                $lookup: {
-                    from: "customers",
-                    localField: "_id",
-                    foreignField: "_id",
-                    as: "customer",
-                },
-            },
-            { $unwind: "$customer" },
-            {
-                $project: {
-                    _id: 1,
-                    totalValue: 1,
-                    invoiceCount: 1,
-                    name: "$customer.name",
-                    company: "$customer.company",
-                },
-            },
-        ]);
-
-        res.json({
-            totals: totals[0] || { totalBilled: 0, totalTax: 0, totalInvoices: 0, uniqueCustomers: 0 },
-            topCustomers,
-        });
-    } catch (e: any) {
-        res.status(500).json({ error: e.message });
-    }
-}
-
 export async function customerAnalytics(req: Request, res: Response) {
     try {
         const { id } = req.params;
@@ -92,6 +36,86 @@ export async function customerAnalytics(req: Request, res: Response) {
         res.json({
             customer,
             metrics: agg[0] || { totalBilled: 0, totalTax: 0, invoiceCount: 0, outstandingBalance: 0 },
+        });
+    } catch (e: any) {
+        res.status(500).json({ error: e.message });
+    }
+}
+
+export async function globalAnalytics(_req: Request, res: Response) {
+    try {
+        const [totals, topCustomers, statusBreakdown, monthlyTrend] = await Promise.all([
+            Invoice.aggregate([
+                {
+                    $group: {
+                        _id: null,
+                        totalBilled: { $sum: "$total" },
+                        totalTax: { $sum: "$tax" },
+                        totalInvoices: { $sum: 1 },
+                        uniqueCustomers: { $addToSet: "$customer" },
+                    },
+                },
+                {
+                    $project: {
+                        _id: 0,
+                        totalBilled: 1,
+                        totalTax: 1,
+                        totalInvoices: 1,
+                        uniqueCustomers: { $size: "$uniqueCustomers" },
+                    },
+                },
+            ]),
+
+            Invoice.aggregate([
+                { $group: { _id: "$customer", totalValue: { $sum: "$total" }, invoiceCount: { $sum: 1 } } },
+                { $sort: { totalValue: -1 } },
+                { $limit: 5 },
+                {
+                    $lookup: {
+                        from: "customers",
+                        localField: "_id",
+                        foreignField: "_id",
+                        as: "customer",
+                    },
+                },
+                { $unwind: "$customer" },
+                {
+                    $project: {
+                        _id: 1,
+                        totalValue: 1,
+                        invoiceCount: 1,
+                        name: "$customer.name",
+                        company: "$customer.company",
+                    },
+                },
+            ]),
+
+            Invoice.aggregate([
+                {
+                    $group: {
+                        _id: "$status",
+                        count: { $sum: 1 },
+                        totalAmount: { $sum: "$total" }
+                    }
+                }
+            ]),
+
+            Invoice.aggregate([
+                {
+                    $group: {
+                        _id: { $substr: ["$issueDate", 0, 7] },
+                        totalInvoiced: { $sum: "$total" }
+                    }
+                },
+                { $sort: { _id: 1 } }
+            ])
+        ]);
+
+        res.json({
+            totals: totals[0] || { totalBilled: 0, totalTax: 0, totalInvoices: 0, uniqueCustomers: 0 },
+            topCustomers,
+            statusBreakdown: statusBreakdown.map(s => ({ status: s._id, count: s.count, amount: s.totalAmount })),
+            monthlyTrend: monthlyTrend.map(m => ({ month: m._id, amount: m.totalInvoiced }))
         });
     } catch (e: any) {
         res.status(500).json({ error: e.message });
