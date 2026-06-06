@@ -6,6 +6,7 @@ import { connectDB } from "./config/db";
 
 // Routes
 import customerRoutes from "./routes/customerRoute";
+import invoiceRoutes from "./routes/invoiceRoute";
 
 dotenv.config();
 
@@ -21,6 +22,8 @@ app.get("/api/health", (_req, res) => {
 
 
 app.use('/api/customers', customerRoutes);
+
+app.use('/api/invoices', invoiceRoutes)
 
 const startServer = async () => {
   await connectDB();
