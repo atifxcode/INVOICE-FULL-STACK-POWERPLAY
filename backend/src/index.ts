@@ -3,6 +3,10 @@ import cors from "cors";
 import dotenv from "dotenv";
 import { connectDB } from "./config/db";
 
+
+// Routes
+import customerRoutes from "./routes/customerRoute";
+
 dotenv.config();
 
 const app = express();
@@ -14,6 +18,9 @@ app.use(express.json());
 app.get("/api/health", (_req, res) => {
   res.json({ status: "ok", message: "Server is running" });
 });
+
+
+app.use('/api/customers', customerRoutes);
 
 const startServer = async () => {
   await connectDB();
