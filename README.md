@@ -25,12 +25,23 @@ A full-stack application for managing customers and invoices, featuring a dashbo
   cp .env.example .env
   ```
 - Update the `MONGODB_URI` in `.env` with your Atlas connection string.
-- Seed the database with initial data:
-  ```bash
-  npm run seed
-  ```
 
-### 3. Frontend Setup
+### 3. Database Seeding
+
+To populate the database with the provided dataset, run the following command from the `backend` directory:
+
+```bash
+npm run seed
+```
+
+This script will:
+
+1. Clear the existing `customers` and `invoices` collections.
+2. Extract unique customers from `seed-data.json`.
+3. Insert customers and link invoices to them using Reference IDs (Normalized Model).
+4. Perform data cleaning (rounding amounts, calculating missing tax/totals).
+
+### 4. Frontend Setup
 
 - Navigate to the `frontend` directory:
   ```bash
@@ -65,12 +76,22 @@ The application will be available at the URL provided by Vite (usually [http://l
 
 ## Data Modeling Rationale
 
-The application uses two main entities: `Customer` and `Invoice`.
+The application follows a **Normalized Data Modeling** approach in MongoDB to ensure data integrity and reduce redundancy.
 
-- **Customer**: Represents a client or company. It includes `name` and `company` fields. This separation allows for logical grouping of invoices per customer.
-- **Invoice**: Contains financial details including `amount`, `taxRate`, `tax`, and `total`. Each invoice references a `Customer`. The `status` field (`Paid`, `Unpaid`, `Overdue`, etc.) tracks the invoice lifecycle.
+### Why Normalized?
 
-Indexing is applied to frequently queried fields like `invoiceId`, `customer`, and `status` to ensure performance.
+Instead of embedding customer data directly into every invoice (denormalized), we split them into two collections: `Customer` and `Invoice`.
+
+1.  **Redundancy Reduction**: Company names and customer details are stored once in the `Customer` collection.
+2.  **Data Integrity**: Updating a customer's company name happens in one place, automatically reflecting across all their invoices.
+3.  **Efficiency**: MongoDB `ObjectIds` are used to link invoices to customers, making joins (`$lookup`) efficient during aggregation.
+
+### Schema Details
+
+- **Customer**: Stores `name` and `company`. Each customer is unique.
+- **Invoice**: Stores transaction details (`amount`, `taxRate`, `status`, etc.). It holds a reference `customer` field pointing to the `Customer` collection.
+
+Indexing is applied to `invoiceId`, `customer`, and `status` to optimize search and filter operations.
 
 ## Assumptions
 
