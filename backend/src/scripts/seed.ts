@@ -6,7 +6,6 @@ import { connectDB } from "../config/db";
 import Customer from "../models/Customer";
 import Invoice from "../models/Invoice";
 
-dotenv.config();
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
