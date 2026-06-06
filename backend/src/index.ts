@@ -9,7 +9,7 @@ import customerRoutes from "./routes/customerRoute";
 import invoiceRoutes from "./routes/invoiceRoute";
 import analyticsRoutes from "./routes/analyticsRoute";
 
-dotenv.config();
+dotenv.config({ quiet: true });
 
 const app = express();
 const PORT = process.env.PORT || 5000;
